@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class PlaceInfoFinder {
 
@@ -22,29 +24,36 @@ public class PlaceInfoFinder {
     private final String graphhopperAPIKey = "15f80c44-c778-46f8-b020-e12b5ad1abd3";
     private final String openweathermapAPIKey = "9bade7338d609d20faa86148719e9562";
 
-    private String readAll(Reader rd) throws IOException {
-        StringBuilder sb = new StringBuilder();
-        int cp;
-        while ((cp = rd.read()) != -1) {
-            sb.append((char) cp);
-        }
-        return sb.toString();
-    }
-
     private JsonElement getJsonElementByUrl(String urlString) throws IOException {
+        URL url = new URL(urlString);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+        connection.setRequestProperty("User-Agent", "WeatherApp/1.0 (s.chernykh@g.nsu.ru)");
+        connection.setRequestProperty("Accept", "application/json");
+
+        connection.setConnectTimeout(5000);
+        connection.setReadTimeout(10000);
+
+        int responseCode = connection.getResponseCode();
+        if (responseCode != 200) {
+            throw new IOException("HTTP " + responseCode + " for URL: " + urlString);
+        }
+
         try (BufferedReader in = new BufferedReader(
-                new InputStreamReader(new URL(urlString).openStream(), StandardCharsets.UTF_8))) {
+                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
             StringBuilder sb = new StringBuilder();
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
                 sb.append(inputLine);
             }
             return JsonParser.parseString(sb.toString());
+        } finally {
+            connection.disconnect();
         }
     }
 
     private CompletableFuture<String> getWeather(String lat, String lon) {
-        return CompletableFuture.supplyAsync(() -> {
+        CompletableFuture<String> future = CompletableFuture.supplyAsync(() -> {
             String urlString = String.format(
                     "https://api.openweathermap.org/data/2.5/weather?lat=%s&lon=%s&appid=%s",
                     lat.trim(), lon.trim(), openweathermapAPIKey
@@ -54,7 +63,6 @@ public class PlaceInfoFinder {
                 JsonElement je = getJsonElementByUrl(urlString);
                 JsonObject root = je.getAsJsonObject();
 
-                // Weather description
                 String description = "N/A";
                 if (root.has("weather") && root.get("weather").isJsonArray()) {
                     var weatherArr = root.getAsJsonArray("weather");
@@ -64,7 +72,6 @@ public class PlaceInfoFinder {
                     }
                 }
 
-                // Wind speed
                 String windSpeed = "N/A";
                 if (root.has("wind") && root.get("wind").isJsonObject()) {
                     var wind = root.getAsJsonObject("wind");
@@ -75,11 +82,14 @@ public class PlaceInfoFinder {
 
                 logger.info("weather get success");
                 return String.format("Weather info: %s, Wind speed: %s m/s", description, windSpeed);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 logger.error("Failed to fetch weather", e);
-                throw new RuntimeException(e);
+                return "[Weather: Error]";
             }
         });
+
+        return future.orTimeout(12, TimeUnit.SECONDS)
+                .exceptionally(ex -> "[Weather: Timeout or error]");
     }
 
     // Fetch Wikipedia summary by page title
@@ -107,7 +117,6 @@ public class PlaceInfoFinder {
         });
     }
 
-    // Use Wikipedia Geosearch instead of OpenTripMap
     private void getInterestPlacesNear(String lat, String lon, List<CompletableFuture<String>> list) {
         String urlString = String.format(
                 "https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=1000&gslimit=8&gscoord=%s|%s&format=json",
@@ -126,7 +135,6 @@ public class PlaceInfoFinder {
                 String title = geosearch.get(i).getAsJsonObject().get("title").getAsString();
                 list.add(getWikipediaSummary(title));
 
-                // Optional: small delay to be polite to Wikipedia API
                 if (i > 0 && i % 5 == 0) {
                     try {
                         Thread.sleep(500);
