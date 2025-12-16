@@ -1,0 +1,16 @@
+2025-12-16 11:48:15.355 [main] INFO  WeatherApp.PlaceInfoFinder - graphhopper url: https://graphhopper.com/api/1/geocode?q=%22Novosibirsk%22&key=15f80c44-c778-46f8-b020-e12b5ad1abd3
+2025-12-16 11:48:16.703 [main] INFO  WeatherApp.PlaceInfoFinder - Get data success
+2025-12-16 11:48:16.704 [main] INFO  WeatherApp.PlaceInfoFinder - Get place success
+2025-12-16 11:48:20.589 [main] INFO  WeatherApp.PlaceInfoFinder - Coordinates: lat=55.0288307, lon=82.9226887
+2025-12-16 11:48:20.599 [main] INFO  WeatherApp.PlaceInfoFinder - Wikipedia geosearch URL: https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=1000&gslimit=8&gscoord=55.0288307|82.9226887&format=json
+2025-12-16 11:48:20.599 [ForkJoinPool.commonPool-worker-1] INFO  WeatherApp.PlaceInfoFinder - weather url: https://api.openweathermap.org/data/2.5/weather?lat=55.0288307&lon=82.9226887&appid=9bade7338d609d20faa86148719e9562
+2025-12-16 11:48:21.056 [main] ERROR WeatherApp.PlaceInfoFinder - Failed to fetch nearby places from Wikipedia
+java.io.IOException: Server returned HTTP response code: 403 for URL: https://en.wikipedia.org/w/api.php?action=query&list=geosearch&gsradius=1000&gslimit=8&gscoord=55.0288307|82.9226887&format=json
+	at java.base/sun.net.www.protocol.http.HttpURLConnection.getInputStream0(HttpURLConnection.java:2014)
+	at java.base/sun.net.www.protocol.http.HttpURLConnection.getInputStream(HttpURLConnection.java:1615)
+	at java.base/sun.net.www.protocol.https.HttpsURLConnectionImpl.getInputStream(HttpsURLConnectionImpl.java:223)
+	at java.base/java.net.URL.openStream(URL.java:1325)
+	at WeatherApp.PlaceInfoFinder.getJsonElementByUrl(PlaceInfoFinder.java:36)
+	at WeatherApp.PlaceInfoFinder.getInterestPlacesNear(PlaceInfoFinder.java:118)
+	at WeatherApp.PlaceInfoFinder.work(PlaceInfoFinder.java:194)
+	at WeatherApp.PlaceInfoFinder.main(PlaceInfoFinder.java:214)
